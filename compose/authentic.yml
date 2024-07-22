@@ -1,0 +1,97 @@
+services: 
+  postgresql:
+    image: postgres:12-alpine
+    restart: unless-stopped
+    container_name: authentik-postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
+      start_period: 20s
+      interval: 30s
+      retries: 5
+      timeout: 5s
+    volumes:
+      - ./database:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=${PG_PASS}
+      - POSTGRES_USER=${PG_USER:-authentik}
+      - POSTGRES_DB=${PG_DB:-authentik}
+    env_file:
+      - ../.envauth
+    networks:
+      - proxy
+  redis:
+    image: redis:alpine
+    restart: unless-stopped
+    container_name: authentik-redis
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      start_period: 20s
+      interval: 30s
+      retries: 5
+      timeout: 3s
+    networks:
+      - proxy
+  server:
+    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2024.6.1}
+    restart: unless-stopped
+    container_name: authentik-server
+    command: server
+    environment:
+      AUTHENTIK_REDIS__HOST: authentik-redis
+      AUTHENTIK_POSTGRESQL__HOST: authentik-postgres
+      AUTHENTIK_POSTGRESQL__USER: ${PG_USER:-authentik}
+      AUTHENTIK_POSTGRESQL__NAME: ${PG_DB:-authentik}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${PG_PASS}
+    volumes:
+      - ./media:/media
+      - ./custom-templates:/templates
+      - ./geoip:/geoip
+    env_file:
+      - ../.envauth
+    # ports:
+    #   - "0.0.0.0:${AUTHENTIK_PORT_HTTP:-9000}:9000"
+    #   - "0.0.0.0:${AUTHENTIK_PORT_HTTPS:-9443}:9443"
+    ports:
+      - "0.0.0.0:${AUTHENTIK_PORT_HTTP:-9000}:9000"
+      - "0.0.0.0:${AUTHENTIK_PORT_HTTPS:-9443}:9443"
+    networks:
+      - proxy
+      - kiosk-int
+    labels:
+      traefik.enable: true
+      traefik.http.routers.authentik.entryPoints: web
+      traefik.http.routers.authentik.rule: Host(`auth.domain.com`) || HostRegexp(`{subdomain:[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?}.domain.com`) && PathPrefix(`/outpost.goauthentik.io/`) || Host(`app.domain.com`)
+  worker:
+    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2022.7.2}
+    restart: unless-stopped
+    container_name: authentik-worker
+    command: worker
+    environment:
+      AUTHENTIK_REDIS__HOST: authentik-redis
+      AUTHENTIK_POSTGRESQL__HOST: authentik-postgres
+      AUTHENTIK_POSTGRESQL__USER: ${PG_USER:-authentik}
+      AUTHENTIK_POSTGRESQL__NAME: ${PG_DB:-authentik}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${PG_PASS}
+    user: root
+    volumes:
+      - ./media:/media
+      - ./certs:/certs
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./custom-templates:/templates
+      - ./geoip:/geoip
+    env_file:
+      - ../.envauth
+    networks:
+      - proxy
+  geoipupdate:
+    image: "maxmindinc/geoipupdate:latest"
+    container_name: authentik-geoip
+    volumes:
+      - "./geoip:/usr/share/GeoIP"
+    environment:
+      GEOIPUPDATE_EDITION_IDS: "GeoLite2-City"
+      GEOIPUPDATE_FREQUENCY: "8"
+    env_file:
+      - ../.envauth
+    networks:
+      - proxy

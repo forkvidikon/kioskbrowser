@@ -9,11 +9,15 @@ services:
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
       - "./config/traefik/traefik.yml:/traefik.yml:ro"
+      - "./config/traefik/auth.yml:/authentic/auth.yml"
     networks:
       - default
       - kiosk-int
+      - proxy
     labels:
-      - "traefik.docker.network=kiosk-int"
+      - "traefik.docker.network=proxy"
+    links:
+      - server
 
 
   kioskcontroller:
@@ -28,15 +32,18 @@ services:
       ".env"
     networks:
       - kiosk-int
+      - proxy
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.kioskcontroller.entrypoints=web"
       - "traefik.http.services.kioskcontroller.loadbalancer.server.port=8099"
       - "traefik.http.middlewares.kioskcontrollerstrip.stripprefix.prefixes=${CONTROLLERROUTE}"
+      # - "traefik.http.routers.kioskcontroller.middlewares=kioskcontrollerstrip,middlewares-authentik@file"
       - "traefik.http.routers.kioskcontroller.middlewares=kioskcontrollerstrip"
       - "traefik.docker.network=kiosk-int"
-      #- "traefik.http.routers.kioskcontroller.rule=PathPrefix(`/mast`) || PathPrefix(`/clean`)"
-      - "traefik.http.routers.kioskcontroller.rule=PathPrefix(`${CONTROLLERROUTE}`) || PathPrefix(`${CLEANROUTE}`)"
+      # - "traefik.http.routers.kioskcontroller.rule=Host(`${CONTROLLERHOST}`) && PathPrefix(`${CONTROLLERROUTE}`) || PathPrefix(`${CLEANROUTE}`)"
+    links:
+      - server
 
 
 #   firefox:
@@ -60,6 +67,9 @@ services:
 #  #     - "traefik.http.services.firefox.loadbalancer.proxyProtocol.version=2"
 #     volumes:
 #       - "./conf:/config:rw"
+
+include:
+  - compose/docker-compose.yml
 
 
 networks:
