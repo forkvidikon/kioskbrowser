@@ -2,6 +2,15 @@
 log:
   level: INFO
 
+
+http:
+  routers:
+    router1:
+      service: myService
+      middlewares:
+        - "foo-add-prefix"
+      rule: "Host(`example.com`)"
+
 api:
   insecure: true
   dashboard: true
@@ -9,6 +18,9 @@ api:
 entryPoints:
   web:
     address: ":80"
+
+
+
 
 providers:
   docker:
