@@ -1,0 +1,23 @@
+services:
+  goxy:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    ports:
+      - 8080:8080
+    env_file:
+      - "../.env"
+      - ".env"
+    networks:
+      - kiosk-int
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.goxy.entrypoints=web"
+      - "traefik.http.services.goxy.loadbalancer.server.port=8080"
+      # - "traefik.http.routers.goxy.middlewares=kioskcontrollerstrip,middlewares-authentik@file"
+      - "traefik.http.routers.goxy.middlewares=kioskcontrollerstrip"
+      - "traefik.docker.network=kiosk-int"
+      - "traefik.http.routers.kioskcontroller.rule=Host(`${GOXYHOST}`)"
+    links:
+      - server

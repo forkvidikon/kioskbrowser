@@ -70,6 +70,7 @@ services:
 
 include:
   - compose/docker-compose.yml
+  - goxy/docker-compose.yml
 
 
 networks:
