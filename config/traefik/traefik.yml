@@ -1,15 +1,9 @@
 ## STATIC CONFIGURATION
 log:
-  level: INFO
+  level: DEBUG
 
 
-http:
-  routers:
-    router1:
-      service: myService
-      middlewares:
-        - "foo-add-prefix"
-      rule: "Host(`example.com`)"
+
 
 api:
   insecure: true
@@ -26,3 +20,5 @@ providers:
   docker:
     endpoint: "unix:///var/run/docker.sock"
     exposedByDefault: false
+  file:
+    directory: "/authentic"
